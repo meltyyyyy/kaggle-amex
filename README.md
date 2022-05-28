@@ -13,4 +13,4 @@ In this competition, you’ll apply your machine learning skills to predict cred
 
 If successful, you'll help create a better customer experience for cardholders by making it easier to be approved for a credit card. Top solutions could challenge the credit default prediction model used by the world's largest payment card issuer—earning you cash prizes, the opportunity to interview with American Express, and potentially a rewarding new career.
 
-<img src=https://user-images.githubusercontent.com/81362789/170804587-b87fc05d-13d7-49ee-93ac-5e62713a1e0f.png height=240>
+<img src=https://user-images.githubusercontent.com/81362789/170804660-9917dccd-ea69-4e65-8a79-808556122fad.png>
