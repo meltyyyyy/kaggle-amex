@@ -12,3 +12,5 @@ American Express is a globally integrated payments company. The largest payment 
 In this competition, you’ll apply your machine learning skills to predict credit default. Specifically, you will leverage an industrial scale data set to build a machine learning model that challenges the current model in production. Training, validation, and testing datasets include time-series behavioral data and anonymized customer profile information. You're free to explore any technique to create the most powerful model, from creating features to using the data in a more organic way within a model.
 
 If successful, you'll help create a better customer experience for cardholders by making it easier to be approved for a credit card. Top solutions could challenge the credit default prediction model used by the world's largest payment card issuer—earning you cash prizes, the opportunity to interview with American Express, and potentially a rewarding new career.
+
+<img src=https://user-images.githubusercontent.com/81362789/170804587-b87fc05d-13d7-49ee-93ac-5e62713a1e0f.png height=240>
