@@ -2,7 +2,7 @@
 name: Baseline
 about: Baseline of new model.
 title: ''
-labels: ''
+labels: Baseline, Share
 assignees: ''
 
 ---
