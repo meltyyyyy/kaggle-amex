@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[57]:
+# In[1]:
 
 
 class Config:
-    name = "EDA/RFE"
+    name = "EDA/Agg-RFE"
 
     n_splits = 5
     seed = 2022
@@ -23,7 +23,7 @@ class Config:
     dir_path = '/home/abe/kaggle/kaggle-amex'
 
 
-# In[58]:
+# In[2]:
 
 
 import os
@@ -46,13 +46,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from tqdm.auto import tqdm
+from IPython import get_ipython
 tqdm.pandas()
 warnings.filterwarnings('ignore')
 
 
 # ## Environment Settings
 
-# In[59]:
+# In[3]:
 
 
 INPUT = os.path.join(Config.dir_path, 'input')
@@ -70,7 +71,7 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
 
 # ## Load data
 
-# In[60]:
+# In[4]:
 
 
 train = pd.read_pickle(os.path.join(INPUT, 'train_agg.pkl'), compression='gzip')
@@ -79,13 +80,13 @@ test = pd.read_pickle(os.path.join(INPUT, 'test_agg.pkl'), compression='gzip')
 # test = test.sample(15000)
 
 
-# In[61]:
+# In[5]:
 
 
 train.info()
 
 
-# In[62]:
+# In[6]:
 
 
 train.head()
@@ -93,7 +94,7 @@ train.head()
 
 # ## Evaluation Metric
 
-# In[63]:
+# In[7]:
 
 
 # https://www.kaggle.com/code/inversion/amex-competition-metric-python
@@ -138,7 +139,7 @@ def lgb_amex_metric(y_true, y_pred):
 
 # ## Transform data type
 
-# In[64]:
+# In[8]:
 
 
 float64_cols = [col for col in train.columns if train[col].dtype == 'float64']
@@ -171,7 +172,7 @@ print(test.info())
 
 # ## Prerocess
 
-# In[65]:
+# In[9]:
 
 
 from sklearn.preprocessing import LabelEncoder
@@ -186,7 +187,7 @@ for col in cat_cols:
 
 # ## Select Features to Use
 
-# In[66]:
+# In[10]:
 
 
 features = []
@@ -201,7 +202,7 @@ for col in train.columns:
 
 # ## Forward Selection
 
-# In[67]:
+# In[11]:
 
 
 from sklearn.model_selection import train_test_split
@@ -212,7 +213,7 @@ X_train, X_test, y_train, y_test = train_test_split(train[features].values, trai
                  shuffle=True)
 
 
-# In[68]:
+# In[12]:
 
 
 from sklearn.feature_selection import RFE
@@ -239,7 +240,7 @@ model = LGBMClassifier(**lgb_params,
                        verbose=-1)
 
 rfe = RFE(model,
-          n_features_to_select=100,
+          n_features_to_select=150,
           step=4,
           verbose=1)
 
@@ -248,20 +249,20 @@ rfe.fit(X_train, y_train, **fit_params)
 
 # ## Generate new train data
 
-# In[69]:
+# In[36]:
 
 
 train_new = pd.DataFrame(rfe.transform(train[features]),
                      columns=train[features].columns.values[rfe.get_support()])
 result = pd.DataFrame(rfe.get_support(), index=train[features].columns.values, columns=['used'])
 result['ranking'] = rfe.ranking_
-result.sort_values('ranking', ascending=True).reset_index(drop=False, inplace=True)
+result = result.sort_values('ranking', ascending=True).rename({result.index.name: 'feature'}).reset_index(drop=False).rename({'index': 'feature'}, axis=1)
 result.to_csv(f'{EXP_MODEL}/rfe_features.csv', index=False)
 
 
 # ## Training
 
-# In[70]:
+# In[ ]:
 
 
 from lightgbm.plotting import plot_metric
@@ -319,14 +320,20 @@ def inference_lgbm(models, X):
     return pred
 
 
-# In[71]:
+# In[38]:
+
+
+feature_df = pd.read_csv(f'{EXP_MODEL}/rfe_features.csv')
+features = feature_df[feature_df['used'] == True].loc[:, 'feature'].values.tolist()
+
+
+# In[ ]:
 
 
 lgb_params = {"learning_rate": 0.01,
               'num_leaves': 127,
               'min_child_samples': 2400}
 
-features = list(train_new.columns)
 models = fit_lgbm(train[features], train[Config.target], params=lgb_params)
 # models = [joblib.load(f'{EXP_MODEL}/lgbm_fold{i}.pkl') for i in range(Config.n_splits)]
 pred = inference_lgbm(models, test[features])
@@ -334,7 +341,7 @@ pred = inference_lgbm(models, test[features])
 
 # ## Plot importance
 
-# In[72]:
+# In[ ]:
 
 
 def plot_importances(models):
@@ -349,7 +356,6 @@ def plot_importances(models):
     plt.xticks(rotation=90)
     plt.ylabel("importance")
     plt.tight_layout()
-    # plt.show()
     plt.savefig(f'{EXP_FIG}/importance.png')
 
 plot_importances(models)
@@ -357,7 +363,7 @@ plot_importances(models)
 
 # ## Submission
 
-# In[73]:
+# In[ ]:
 
 
 sub = pd.DataFrame({'customer_ID': test.index,
@@ -365,7 +371,7 @@ sub = pd.DataFrame({'customer_ID': test.index,
 sub.to_csv(f'{EXP_PREDS}/submission.csv', index=False)
 
 
-# In[74]:
+# In[ ]:
 
 
 get_ipython().system(' kaggle competitions submit -c amex-default-prediction -f /home/abe/kaggle/kaggle-amex/submissions/submission.csv -m "Recuresive Feature Elimination for Aggregation Features"')

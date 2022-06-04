@@ -46,6 +46,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from tqdm.auto import tqdm
+from IPython import get_ipython
 tqdm.pandas()
 warnings.filterwarnings('ignore')
 
