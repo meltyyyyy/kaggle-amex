@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# <a href="https://colab.research.google.com/github/meltyyyyy/kaggle-amex/blob/main/Notebooks/CatBoost/Aggregation001.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
-
-# In[1]:
+# In[ ]:
 
 
 class Config:
-    name = "CatBoost/Aggregation002"
+    name = "EDA/Agg-EmbededLasso"
 
     n_splits = 5
     seed = 2022
@@ -25,7 +23,7 @@ class Config:
     dir_path = '/home/abe/kaggle/kaggle-amex'
 
 
-# In[2]:
+# In[ ]:
 
 
 import os
@@ -49,12 +47,13 @@ import seaborn as sns
 
 from tqdm.auto import tqdm
 from IPython import get_ipython
+tqdm.pandas()
 warnings.filterwarnings('ignore')
 
 
 # ## Environment Settings
 
-# In[3]:
+# In[ ]:
 
 
 INPUT = os.path.join(Config.dir_path, 'input')
@@ -70,11 +69,15 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
     os.makedirs(d, exist_ok=True)
 
 
-# In[4]:
+# ## Load data
+
+# In[ ]:
 
 
-train = pd.read_pickle(os.path.join(INPUT, 'train_agg.pkl'), compression="gzip")
-test = pd.read_pickle(os.path.join(INPUT, 'test_agg.pkl'), compression="gzip")
+train = pd.read_pickle(os.path.join(INPUT, 'train_agg.pkl'), compression='gzip')
+test = pd.read_pickle(os.path.join(INPUT, 'test_agg.pkl'), compression='gzip')
+# train = train.sample(100000)
+# test = test.sample(15000)
 
 
 # In[ ]:
@@ -89,7 +92,7 @@ train.info()
 train.head()
 
 
-# ## Evaluation merics
+# ## Evaluation Metric
 
 # In[ ]:
 
@@ -106,7 +109,7 @@ def amex_metric(y_true: pd.DataFrame, y_pred: pd.DataFrame) -> float:
         df['weight_cumsum'] = df['weight'].cumsum()
         df_cutoff = df.loc[df['weight_cumsum'] <= four_pct_cutoff]
         return (df_cutoff['target'] == 1).sum() / (df['target'] == 1).sum()
-
+        
     def weighted_gini(y_true: pd.DataFrame, y_pred: pd.DataFrame) -> float:
         df = (pd.concat([y_true, y_pred], axis='columns')
               .sort_values('prediction', ascending=False))
@@ -127,32 +130,14 @@ def amex_metric(y_true: pd.DataFrame, y_pred: pd.DataFrame) -> float:
 
     return 0.5 * (g + d)
 
-class AmexMetric(object):
-    def get_final_error(self, error, weight):
-        return error
-
-    def is_max_optimal(self):
-        # the larger metric value the better
-        return True
-
-    def evaluate(self, approxes, target, weight):
-        assert len(approxes) == 1
-        assert len(target) == len(approxes[0])
-        preds = np.array(approxes[0])
-        target = np.array(target)
-        return amex_metric(pd.DataFrame({'target': target}), pd.Series(preds, name='prediction')), 0
+def lgb_amex_metric(y_true, y_pred):
+    """The competition metric with lightgbm's calling convention"""
+    return ('amex',
+            amex_metric(pd.DataFrame({'target': y_true}), pd.Series(y_pred, name='prediction')),
+            True)
 
 
-# ## Preprocess
-
-# In[ ]:
-
-
-for col in train.columns:
-    if train[col].dtype=='float16':
-        train[col] = train[col].astype('float32').round(decimals=2).astype('float16')
-        test[col] = test[col].astype('float32').round(decimals=2).astype('float16')
-
+# ## Transform data type
 
 # In[ ]:
 
@@ -185,79 +170,103 @@ print(train.info())
 print(test.info())
 
 
-# ## Select features to use
+# ## Preprocess
 
 # In[ ]:
 
 
-from sklearn.preprocessing import LabelEncoder
+train.head()
 
-features = []
-unuse = ['target']
-cat_features = [
-    "B_30",
-    "B_38",
-    "D_114",
-    "D_116",
-    "D_117",
-    "D_120",
-    "D_126",
-    "D_63",
-    "D_64",
-    "D_66",
-    "D_68"
-]
-cat_features = [f"{cf}_last" for cf in cat_features]
 
-encoder = LabelEncoder()
-for categorical_feature in cat_features:
-    train[categorical_feature] = encoder.fit_transform(train[categorical_feature])
-    test[categorical_feature] = encoder.transform(test[categorical_feature])
+# In[ ]:
+
+
+categorical = []
+continuous = []
+cat_cols = ['B_30', 'B_38', 'D_114', 'D_116', 'D_117', 'D_120', 'D_126', 'D_63', 'D_64', 'D_66', 'D_68']
+for col in cat_cols:
+    categorical.append(f'{col}_last')
+    categorical.append(f'{col}_count')
+    categorical.append(f'{col}_nunique')
 
 for col in train.columns:
-  if col not in unuse:
-    features.append(col)
+    if col not in categorical + [Config.target]:
+        continuous.append(col)
+
+
+# ## Feature Selection
+
+# In[ ]:
+
+
+train[continuous] = train[continuous].fillna(0)
+test[continuous] = test[continuous].fillna(0)
+train[continuous].isna().sum()
+
+
+# In[ ]:
+
+
+from sklearn.linear_model import Lasso
+from sklearn.feature_selection import SelectFromModel
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+scaler.fit(train[continuous])
+
+selector = SelectFromModel(Lasso(alpha=0.0001), max_features=150)
+selector.fit(scaler.transform(train[continuous]), train[Config.target])
+
+selected_features = train[continuous].columns.values[selector.get_support()]
+print(len(selected_features))
 
 
 # ## Training
 
-# In[1]:
+# In[ ]:
 
 
-from catboost import CatBoostClassifier
+from lightgbm.plotting import plot_metric
+from lightgbm import LGBMClassifier, early_stopping
 from sklearn.model_selection import StratifiedKFold
 
-def fit_catboost(X, y, cat_features=None, params=None):
+def fit_lgbm(X, y, params=None):
   models = []
   scores = []
 
   skf = StratifiedKFold(n_splits=Config.n_splits, shuffle=True, random_state=Config.seed)
-
+  
   for fold, (train_indices, valid_indices) in enumerate(tqdm(skf.split(X, y))):
     print("-"*50+f' fold{fold} '+'-'*50)
     X_train, y_train = X.iloc[train_indices], y.iloc[train_indices]
     X_valid, y_valid = X.iloc[valid_indices], y.iloc[valid_indices]
 
-    model = CatBoostClassifier(**params,
-                              #  eval_metric=AmexMetric(),
-                               task_type='GPU',
-                               iterations=10000,
-                               random_seed=Config.seed,
-                               verbose=0)
-
-    model.fit(X_train, y_train,
-              cat_features=cat_features,
-              eval_set=[(X_valid, y_valid)],
-              early_stopping_rounds=10,
-              verbose_eval=50)
-
+    model = LGBMClassifier(**params,
+                           boosting_type='gbdt',
+                           objective='binary',
+                           n_estimators=10000,
+                           random_state=Config.seed,
+                           force_col_wise=True,
+                           n_jobs=32,
+                           verbose=-1)
+    
+    model.fit(X_train, y_train, 
+              eval_set=[(X_train, y_train), (X_valid, y_valid)],
+              eval_names=['train', 'valid'],
+              eval_metric=lgb_amex_metric,
+              callbacks=[early_stopping(stopping_rounds=10, verbose=0)],
+              verbose=50)
+    
     # ------------------- prediction -------------------
     pred = model.predict_proba(X_valid)[:, 1]
     score = amex_metric(pd.DataFrame({'target': y_valid.values}), pd.Series(pred, name='prediction'))
 
+    # ------------------- plot -------------------
+    plot_metric(model)
+
     # ------------------- save -------------------
-    file = f'{EXP_MODEL}/catboost_fold{fold}.pkl'
-    model.save_model(file, format='cbm')
+    file = f'{EXP_MODEL}/lgbm_fold{fold}.pkl'
+    joblib.dump(model, file)
     scores.append(score)
     models.append(model)
     print(f'fold{fold} amex meric: {score}')
@@ -266,7 +275,7 @@ def fit_catboost(X, y, cat_features=None, params=None):
   print(f"OOF Score: {np.mean(scores):.5f}")
   return models
 
-def inference_catboost(models, X):
+def inference_lgbm(models, X):
     pred = np.array([model.predict_proba(X) for model in models])
     pred = np.mean(pred, axis=0)[:, 1]
     return pred
@@ -275,25 +284,27 @@ def inference_catboost(models, X):
 # In[ ]:
 
 
-cat_params = {"learning_rate": 0.01}
+lgb_params = {"learning_rate": 0.01,
+              'num_leaves': 127,
+              'min_child_samples': 2400}
 
-models = fit_catboost(train[features], train[Config.target], cat_features=cat_features, params=cat_params)
+models = fit_lgbm(train[selected_features], train[Config.target], params=lgb_params)
 # models = [joblib.load(f'{EXP_MODEL}/lgbm_fold{i}.pkl') for i in range(Config.n_splits)]
-pred = inference_catboost(models, test[features])
+pred = inference_lgbm(models, test[selected_features])
 
 
-# ## Plot importances
+# ## Plot importance
 
 # In[ ]:
 
 
 def plot_importances(models):
-    importance_df = pd.DataFrame(models[0].feature_importances_,
-                                 index=features,
+    importance_df = pd.DataFrame(models[0].feature_importances_, 
+                                 index=selected_features, 
                                  columns=['importance'])\
                         .sort_values("importance", ascending=False)
 
-    plt.subplots(figsize=(len(features) // 4, 5))
+    plt.subplots(figsize=(len(selected_features) // 4, 5))
     plt.bar(importance_df.index, importance_df.importance)
     plt.grid()
     plt.xticks(rotation=90)
@@ -311,11 +322,5 @@ plot_importances(models)
 
 sub = pd.DataFrame({'customer_ID': test.index,
                     'prediction': pred})
-sub.to_csv(f'{SUBMISSION}/submission.csv', index=False)
-
-
-# In[ ]:
-
-
-get_ipython().system(' kaggle competitions submit -c amex-default-prediction -f /home/abe/kaggle/kaggle-amex/submissions/submission.csv -m "CatBoost Rounding Trick"')
+sub.to_csv(f'{EXP_PREDS}/submission.csv', index=False)
 
