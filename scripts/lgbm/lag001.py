@@ -17,10 +17,10 @@ class Config:
     upload_from_colab = True
     api_path = "/content/drive/MyDrive/workspace/kaggle.json"
     drive_path = "/content/drive/MyDrive/workspace/kaggle-amex"
-    
+
     # Kaggle Env
     kaggle_dataset_path = None
-    
+
     # Reka Env
     dir_path = '/home/abe/kaggle/kaggle-amex'
 
@@ -45,7 +45,7 @@ import pickle
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-get_ipython().run_line_magic('matplotlib', 'inline')
+# get_ipython().run_line_magic('matplotlib', 'inline')
 plt.style.use('seaborn-pastel')
 import seaborn as sns
 sns.set_palette("winter_r")
@@ -74,9 +74,9 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
 # In[53]:
 
 
-train = pd.read_parquet(os.path.join(INPUT, 'train_small.parquet'))
+train = pd.read_parquet(os.path.join(INPUT, 'train.parquet'))
 target = pd.read_csv(os.path.join(INPUT, 'train_labels.csv'), dtype={'customer_ID': 'str', 'target': 'int8'})
-test = pd.read_parquet(os.path.join(INPUT, 'test_small.parquet'))
+test = pd.read_parquet(os.path.join(INPUT, 'test.parquet'))
 
 
 # In[54]:
@@ -88,7 +88,7 @@ train.info()
 # In[55]:
 
 
-train.head()
+print(train.head())
 
 
 # ## Evaluation merics
@@ -141,8 +141,8 @@ def lgb_amex_metric(y_true, y_pred):
 
 
 def plot_importances(models, fig):
-    importance_df = pd.DataFrame(models[0].feature_importances_, 
-                                 index=features, 
+    importance_df = pd.DataFrame(models[0].feature_importances_,
+                                 index=features,
                                  columns=['importance'])\
                         .sort_values("importance", ascending=False)
 
@@ -240,7 +240,6 @@ def _add_diff_features(args, step=3):
 def add_diff_features(df : pd.DataFrame, processes=32):
     with multiprocessing.Pool(processes=processes) as pool:
         dfs = pool.imap_unordered(_add_diff_features, df.groupby('customer_ID'))
-        dfs = tqdm(dfs)
         dfs = list(dfs)
     df = pd.concat(dfs)
     return df.reset_index(drop=True).sort_index(axis=1)
@@ -267,7 +266,6 @@ def _add_shift_features(args, step=3):
 def add_shift_features(df : pd.DataFrame, processes=32):
     with multiprocessing.Pool(processes=processes) as pool:
         dfs = pool.imap_unordered(_add_shift_features, df.groupby('customer_ID'))
-        dfs = tqdm(dfs)
         dfs = list(dfs)
     df = pd.concat(dfs)
     return df.reset_index(drop=True).sort_index(axis=1)
@@ -294,7 +292,6 @@ def _add_pct_features(args, step=3):
 def add_pct_features(df : pd.DataFrame, processes=32):
     with multiprocessing.Pool(processes=processes) as pool:
         dfs = pool.imap_unordered(_add_pct_features, df.groupby('customer_ID'))
-        dfs = tqdm(dfs)
         dfs = list(dfs)
     df = pd.concat(dfs)
     return df.reset_index(drop=True).sort_index(axis=1)
@@ -320,7 +317,6 @@ def _add_avg_features(args, step=3):
 def add_avg_features(df : pd.DataFrame, processes=32):
     with multiprocessing.Pool(processes=processes) as pool:
         dfs = pool.imap_unordered(_add_avg_features, df.groupby('customer_ID'))
-        dfs = tqdm(dfs)
         dfs = list(dfs)
     df = pd.concat(dfs)
     return df.reset_index(drop=True).sort_index(axis=1)
@@ -340,10 +336,10 @@ def select_cont_features(df : pd.DataFrame, features, target, max_features=150):
     features_list = []
     train_y = df[target]
     train_X = df[features]
-    
+
     train_X = train_X.replace([np.inf, -np.inf], np.nan)
     train_X = train_X.fillna(-999)
-    
+
     # select features with L1 norm
     scaler = StandardScaler()
     scaler.fit(train_X)
@@ -353,14 +349,14 @@ def select_cont_features(df : pd.DataFrame, features, target, max_features=150):
         selected_features = train_X.columns.values[selector.get_support()]
         features_list.append(selected_features)
         print('number of selected features : {}'.format(len(selected_features)))
-    
+
     return features_list
 
 def select_shift_features(df : pd.DataFrame, features, target, max_features=150):
     shift_features_list = []
     train_y = df[target]
     train_X = df[features]
-    
+
     cont_shift_features = []
     for shift in [1, 2, 3]:
         for col in cont_features:
@@ -369,11 +365,11 @@ def select_shift_features(df : pd.DataFrame, features, target, max_features=150)
     for shift in [1, 2, 3]:
         for col in cat_features:
             cat_shift_features.append(f"{col}_shift{shift}")
-    
+
     # number of categorical features are small
     # simply select continuous features
     train_X = train_X[cont_shift_features].fillna(-999)
-    
+
     # select features with L1 norm
     scaler = StandardScaler()
     scaler.fit(train_X)
@@ -384,22 +380,22 @@ def select_shift_features(df : pd.DataFrame, features, target, max_features=150)
         selected_features = np.hstack((selected_features, cat_shift_features))
         shift_features_list.append(selected_features)
         print('number of selected features : {}'.format(len(selected_features)))
-    
+
     return shift_features_list
 
-print('======= select diff features =======')        
+print('======= select diff features =======')
 features = [col for col in train_diff.columns if col not in ['customer_ID', Config.target]]
 diff_features_list = select_cont_features(train_diff, features, Config.target)
 
-print('======= select pct features =======')      
+print('======= select pct features =======')
 features = [col for col in train_pct.columns if col not in ['customer_ID', Config.target]]
 pct_features_list = select_cont_features(train_pct, features, Config.target)
 
-print('======= select avg features =======')   
+print('======= select avg features =======')
 features = [col for col in train_avg.columns if col not in ['customer_ID', Config.target]]
 avg_features_list = select_cont_features(train_avg, features, Config.target)
 
-print('======= select shift features =======')  
+print('======= select shift features =======')
 features = [col for col in train_shift.columns if col not in ['customer_ID', Config.target]]
 shift_features_list = select_shift_features(train_shift, features, Config.target)
 
@@ -467,28 +463,28 @@ lgb_params = {"learning_rate": 0.03,
               "metric" : "None",
               'max_bin': 511}
 
-print('======= Diff Features =======')  
+print('======= Diff Features =======')
 for diff_features in diff_features_list:
     data = train.join(train_diff[list(diff_features) + ['customer_ID']].set_index('customer_ID'), how='left')
     features = get_faetures(data)
     fit_lgbm(data[features], data[Config.target], params=lgb_params)
 del train_diff
 
-print('======= Pct Features =======')  
+print('======= Pct Features =======')
 for pct_features in pct_features_list:
     data = train.join(train_pct[list(pct_features) + ['customer_ID']].set_index('customer_ID'), how='left')
     features = get_faetures(data)
     fit_lgbm(data[features], data[Config.target], params=lgb_params)
 del train_pct
 
-print('======= Avg Features =======')  
+print('======= Avg Features =======')
 for avg_features in avg_features_list:
     data = train.join(train_avg[list(avg_features) + ['customer_ID']].set_index('customer_ID'), how='left')
     features = get_faetures(data)
     fit_lgbm(data[features], data[Config.target], params=lgb_params)
 del train_avg
 
-print('======= Shift Features =======')  
+print('======= Shift Features =======')
 for shift_features in shift_features_list:
     data = train.join(train_shift[list(shift_features) + ['customer_ID']].set_index('customer_ID'), how='left')
     features = get_faetures(data)
