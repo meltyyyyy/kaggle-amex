@@ -74,9 +74,9 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
 # In[53]:
 
 
-train = pd.read_parquet(os.path.join(INPUT, 'train.parquet'))
+train = pd.read_parquet(os.path.join(INPUT, 'train_small.parquet'))
 target = pd.read_csv(os.path.join(INPUT, 'train_labels.csv'), dtype={'customer_ID': 'str', 'target': 'int8'})
-test = pd.read_parquet(os.path.join(INPUT, 'test.parquet'))
+test = pd.read_parquet(os.path.join(INPUT, 'test_small.parquet'))
 
 
 # In[54]:
@@ -221,32 +221,6 @@ cat_features = ['B_30', 'B_38', 'D_114', 'D_116', 'D_117', 'D_120', 'D_126', 'D_
 cont_features = [col for col in train.columns if col not in cat_features + [Config.target, 'S_2', 'customer_ID']]
 
 
-# In[60]:
-
-
-def _add_diff_features(args, step=3):
-    customer_id, df = args
-    dfs = []
-    for i in range(step):
-        shift = i+1
-        df_diff = df[cont_features].diff(shift).rename(columns={f: f"{f}_diff{shift}" for f in cont_features})
-        df_diff = df_diff.tail(1).reset_index(drop=True)
-        dfs.append(df_diff)
-    df = pd.concat(dfs, axis=1)
-    df['customer_ID'] = customer_id
-    return df
-
-
-def add_diff_features(df : pd.DataFrame, processes=32):
-    with multiprocessing.Pool(processes=processes) as pool:
-        dfs = pool.imap_unordered(_add_diff_features, df.groupby('customer_ID'))
-        dfs = list(dfs)
-    df = pd.concat(dfs)
-    return df.reset_index(drop=True).sort_index(axis=1)
-
-train_diff = add_diff_features(train.copy()).merge(target, how='left', on='customer_ID')
-# test_diff = add_diff_features(test.copy())
-
 
 # In[61]:
 
@@ -273,56 +247,6 @@ def add_shift_features(df : pd.DataFrame, processes=32):
 train_shift = add_shift_features(train.copy()).merge(target, how='left', on='customer_ID')
 # test_shift = add_shift_features(test.copy())
 
-
-# In[62]:
-
-
-def _add_pct_features(args, step=3):
-    customer_id, df = args
-    dfs = []
-    for i in range(step):
-        shift = i+1
-        df_pct = df[cont_features].pct_change(shift).rename(columns={f: f"{f}_pct{shift}" for f in cont_features})
-        df_pct = df_pct.tail(1).reset_index(drop=True)
-        dfs.append(df_pct)
-    df = pd.concat(dfs, axis=1)
-    df['customer_ID'] = customer_id
-    return df
-
-def add_pct_features(df : pd.DataFrame, processes=32):
-    with multiprocessing.Pool(processes=processes) as pool:
-        dfs = pool.imap_unordered(_add_pct_features, df.groupby('customer_ID'))
-        dfs = list(dfs)
-    df = pd.concat(dfs)
-    return df.reset_index(drop=True).sort_index(axis=1)
-
-train_pct = add_pct_features(train.copy()).merge(target, how='left', on='customer_ID')
-# test_pct = add_pct_features(test.copy())
-
-
-# In[63]:
-
-
-def _add_avg_features(args, step=3):
-    customer_id, df = args
-    dfs = []
-    for window in [3, 6, 9, 12]:
-        df_avg = df[cont_features].rolling(window).mean(skipna=True).rename(columns={f: f"{f}_pct{window}" for f in cont_features})
-        df_avg = df_avg.tail(1).reset_index(drop=True)
-        dfs.append(df_avg)
-    df = pd.concat(dfs, axis=1)
-    df['customer_ID'] = customer_id
-    return df
-
-def add_avg_features(df : pd.DataFrame, processes=32):
-    with multiprocessing.Pool(processes=processes) as pool:
-        dfs = pool.imap_unordered(_add_avg_features, df.groupby('customer_ID'))
-        dfs = list(dfs)
-    df = pd.concat(dfs)
-    return df.reset_index(drop=True).sort_index(axis=1)
-
-train_avg = add_avg_features(train.copy()).merge(target, how='left', on='customer_ID')
-# test_avg = add_avg_features(test.copy())
 
 
 # In[64]:
@@ -383,17 +307,7 @@ def select_shift_features(df : pd.DataFrame, features, target, max_features=150)
 
     return shift_features_list
 
-print('======= select diff features =======')
-features = [col for col in train_diff.columns if col not in ['customer_ID', Config.target]]
-diff_features_list = select_cont_features(train_diff, features, Config.target)
 
-print('======= select pct features =======')
-features = [col for col in train_pct.columns if col not in ['customer_ID', Config.target]]
-pct_features_list = select_cont_features(train_pct, features, Config.target)
-
-print('======= select avg features =======')
-features = [col for col in train_avg.columns if col not in ['customer_ID', Config.target]]
-avg_features_list = select_cont_features(train_avg, features, Config.target)
 
 print('======= select shift features =======')
 features = [col for col in train_shift.columns if col not in ['customer_ID', Config.target]]
@@ -463,26 +377,6 @@ lgb_params = {"learning_rate": 0.03,
               "metric" : "None",
               'max_bin': 511}
 
-print('======= Diff Features =======')
-for diff_features in diff_features_list:
-    data = train.join(train_diff[list(diff_features) + ['customer_ID']].set_index('customer_ID'), how='left')
-    features = get_faetures(data)
-    fit_lgbm(data[features], data[Config.target], params=lgb_params)
-del train_diff
-
-print('======= Pct Features =======')
-for pct_features in pct_features_list:
-    data = train.join(train_pct[list(pct_features) + ['customer_ID']].set_index('customer_ID'), how='left')
-    features = get_faetures(data)
-    fit_lgbm(data[features], data[Config.target], params=lgb_params)
-del train_pct
-
-print('======= Avg Features =======')
-for avg_features in avg_features_list:
-    data = train.join(train_avg[list(avg_features) + ['customer_ID']].set_index('customer_ID'), how='left')
-    features = get_faetures(data)
-    fit_lgbm(data[features], data[Config.target], params=lgb_params)
-del train_avg
 
 print('======= Shift Features =======')
 for shift_features in shift_features_list:
