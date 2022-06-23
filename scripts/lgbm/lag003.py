@@ -79,7 +79,7 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
 # In[53]:
 
 
-train = pd.read_parquet(os.path.join(INPUT, 'train_small.parquet'))
+train = pd.read_parquet(os.path.join(INPUT, 'train.parquet'))
 target = pd.read_csv(
     os.path.join(
         INPUT,
@@ -87,7 +87,7 @@ target = pd.read_csv(
     dtype={
         'customer_ID': 'str',
         'target': 'int8'})
-test = pd.read_parquet(os.path.join(INPUT, 'test_small.parquet'))
+test = pd.read_parquet(os.path.join(INPUT, 'test.parquet'))
 
 
 # In[54]:
