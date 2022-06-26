@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[38]:
+# In[1]:
 
 
 class Config:
-    name = "LGBM/Diff"
+    name = "LGBM/Avg"
 
     n_splits = 5
     seed = 2022
@@ -23,7 +23,7 @@ class Config:
     dir_path = '/home/abe/kaggle/kaggle-amex'
 
 
-# In[39]:
+# In[2]:
 
 
 import os
@@ -52,7 +52,7 @@ tqdm.pandas()
 warnings.filterwarnings('ignore')
 
 
-# In[40]:
+# In[3]:
 
 
 INPUT = os.path.join(Config.dir_path, 'input')
@@ -68,7 +68,7 @@ for d in [INPUT, SUBMISSION, EXP_MODEL, EXP_FIG, EXP_PREDS]:
     os.makedirs(d, exist_ok=True)
 
 
-# In[41]:
+# In[4]:
 
 
 train = pd.read_parquet(os.path.join(INPUT, 'train.parquet'))
@@ -77,13 +77,13 @@ target = pd.read_csv(os.path.join(INPUT, 'train_labels.csv'), dtype={'customer_I
 test = pd.read_parquet(os.path.join(INPUT, 'test.parquet'))
 
 
-# In[42]:
+# In[5]:
 
 
 train.info()
 
 
-# In[43]:
+# In[6]:
 
 
 train.head()
@@ -91,7 +91,7 @@ train.head()
 
 # ## Evaluation merics
 
-# In[44]:
+# In[7]:
 
 
 # @yunchonggan's fast metric implementation
@@ -135,7 +135,7 @@ def lgb_amex_metric(y_true, y_pred):
 
 # ## Feature Eng
 
-# In[45]:
+# In[8]:
 
 
 cat_features = [
@@ -154,42 +154,39 @@ cont_features = [col for col in train.columns if col not in cat_features +
                  [Config.target, 'S_2', 'customer_ID']]
 
 
-# In[46]:
+# In[9]:
 
 
-def _add_diff_features(args, step=3):
+def _add_avg_features(args, step=3):
     customer_id, df = args
     dfs = []
-    for i in range(step):
-        shift = i + 1
-        df_diff = df[cont_features].diff(shift).rename(
-            columns={f: f"{f}_diff{shift}" for f in cont_features})
-        df_diff = df_diff.tail(1).reset_index(drop=True)
-        dfs.append(df_diff)
+    for window in [3, 6, 9, 12]:
+        df_avg = df[cont_features].rolling(window).mean(skipna=True).rename(
+            columns={f: f"{f}_pct{window}" for f in cont_features})
+        df_avg = df_avg.tail(1).reset_index(drop=True)
+        dfs.append(df_avg)
     df = pd.concat(dfs, axis=1)
     df['customer_ID'] = customer_id
     return df
 
 
-def add_diff_features(df: pd.DataFrame, processes=32):
+def add_avg_features(df: pd.DataFrame, processes=32):
     with multiprocessing.Pool(processes=processes) as pool:
-        dfs = pool.imap_unordered(
-            _add_diff_features,
-            df.groupby('customer_ID'))
+        dfs = pool.imap_unordered(_add_avg_features, df.groupby('customer_ID'))
         dfs = list(dfs)
     df = pd.concat(dfs)
     return df.reset_index(drop=True).sort_index(axis=1)
 
 
-train_diff = add_diff_features(
+train_avg = add_avg_features(
     train.copy()).merge(
         target,
         how='left',
     on='customer_ID')
-test_diff = add_diff_features(test.copy())
+test_avg = add_avg_features(test.copy())
 
 
-# In[47]:
+# In[10]:
 
 
 from sklearn.preprocessing import StandardScaler
@@ -220,15 +217,16 @@ def select_cont_features(df: pd.DataFrame, features, target, max_features=150):
 
     return features_list
 
-print('======= select diff features =======')
+
+print('======= select avg features =======')
 features = [
-    col for col in train_diff.columns if col not in [
+    col for col in train_avg.columns if col not in [
         'customer_ID',
         Config.target]]
-diff_features_list = select_cont_features(train_diff, features, Config.target)
+avg_features_list = select_cont_features(train_avg, features, Config.target)
 
 
-# In[48]:
+# In[11]:
 
 
 features_avg = ['B_1', 'B_2', 'B_3', 'B_4', 'B_5', 'B_6', 'B_8', 'B_9', 'B_10', 'B_11', 'B_12', 'B_13', 'B_14', 'B_15', 'B_16', 'B_17', 'B_18', 'B_19', 'B_20', 'B_21', 'B_22', 'B_23', 'B_24', 'B_25', 'B_28', 'B_29', 'B_30', 'B_32', 'B_33', 'B_37', 'B_38', 'B_39', 'B_40', 'B_41', 'B_42', 'D_39', 'D_41', 'D_42', 'D_43', 'D_44', 'D_45', 'D_46', 'D_47', 'D_48', 'D_50', 'D_51', 'D_53', 'D_54', 'D_55', 'D_58', 'D_59', 'D_60', 'D_61', 'D_62', 'D_65', 'D_66', 'D_69', 'D_70', 'D_71', 'D_72', 'D_73', 'D_74', 'D_75', 'D_76', 'D_77', 'D_78', 'D_80', 'D_82', 'D_84', 'D_86', 'D_91', 'D_92', 'D_94', 'D_96', 'D_103', 'D_104', 'D_108', 'D_112', 'D_113', 'D_114', 'D_115', 'D_117', 'D_118', 'D_119', 'D_120', 'D_121', 'D_122', 'D_123', 'D_124', 'D_125', 'D_126', 'D_128', 'D_129', 'D_131', 'D_132', 'D_133', 'D_134', 'D_135', 'D_136', 'D_140', 'D_141', 'D_142', 'D_144', 'D_145', 'P_2', 'P_3', 'P_4', 'R_1', 'R_2', 'R_3', 'R_7', 'R_8', 'R_9', 'R_10', 'R_11', 'R_14', 'R_15', 'R_16', 'R_17', 'R_20', 'R_21', 'R_22', 'R_24', 'R_26', 'R_27', 'S_3', 'S_5', 'S_6', 'S_7', 'S_9', 'S_11', 'S_12', 'S_13', 'S_15', 'S_16', 'S_18', 'S_22', 'S_23', 'S_25', 'S_26']
@@ -272,7 +270,7 @@ test = add_features(test)
 
 # ## Select features to use
 
-# In[49]:
+# In[12]:
 
 
 def get_faetures(df):
@@ -283,7 +281,7 @@ def get_faetures(df):
 
 # ## Training
 
-# In[50]:
+# In[13]:
 
 
 from lightgbm.plotting import plot_metric
@@ -340,7 +338,7 @@ def inference_lgbm(models, X):
     return pred
 
 
-# In[51]:
+# In[14]:
 
 
 lgb_params = {"learning_rate": 0.03,
@@ -353,8 +351,8 @@ lgb_params = {"learning_rate": 0.03,
 best_score = 0
 best_models = []
 best_features = []
-for i, diff_features in enumerate(diff_features_list):
-    data = train.join(train_diff[list(diff_features) +
+for i, diff_features in enumerate(avg_features_list):
+    data = train.join(train_avg[list(diff_features) +
                                  ['customer_ID']].set_index('customer_ID'), how='left')
     features = get_faetures(data)
     print('#'*25)
@@ -367,15 +365,15 @@ for i, diff_features in enumerate(diff_features_list):
         best_models = models
         best_features = features
 
-del train, train_diff
+del train, train_avg
 
-test = test.join(test_diff.set_index('customer_ID'), how='left')[best_features]
+test = test.join(test_avg.set_index('customer_ID'), how='left')[best_features]
 pred = inference_lgbm(best_models, test[best_features])
 
 
 # ## Plot importances
 
-# In[52]:
+# In[15]:
 
 
 def plot_importances(models):
@@ -397,7 +395,7 @@ plot_importances(best_models)
 
 # ## Submission
 
-# In[53]:
+# In[16]:
 
 
 sub = pd.DataFrame({'customer_ID': test.index,
