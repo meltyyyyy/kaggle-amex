@@ -318,43 +318,6 @@ def select_cont_features(df: pd.DataFrame, features, target, max_features=150):
     return features_list
 
 
-def select_shift_features(
-        df: pd.DataFrame,
-        features,
-        target,
-        max_features=150):
-    shift_features_list = []
-    train_y = df[target]
-    train_X = df[features]
-
-    cont_shift_features = []
-    for shift in [1, 2, 3]:
-        for col in cont_features:
-            cont_shift_features.append(f"{col}_shift{shift}")
-    cat_shift_features = []
-    for shift in [1, 2, 3]:
-        for col in cat_features:
-            cat_shift_features.append(f"{col}_shift{shift}")
-
-    # number of categorical features are small
-    # simply select continuous features
-    train_X = train_X[cont_shift_features].fillna(-999)
-
-    # select features with L1 norm
-    scaler = StandardScaler()
-    scaler.fit(train_X)
-    for alpha in [7e-3, 1e-2, 3e-2, 1e-1]:
-        selector = SelectFromModel(
-            Lasso(
-                alpha=alpha),
-            max_features=max_features)
-        selector.fit(scaler.transform(train_X), train_y)
-        selected_features = train_X.columns.values[selector.get_support()]
-        selected_features = np.hstack((selected_features, cat_shift_features))
-        shift_features_list.append(selected_features)
-        print('number of selected features : {}'.format(len(selected_features)))
-
-    return shift_features_list
 
 
 print('======= select diff features =======')
