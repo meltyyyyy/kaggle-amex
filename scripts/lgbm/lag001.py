@@ -2,6 +2,20 @@
 # coding: utf-8
 
 # <a href="https://colab.research.google.com/github/meltyyyyy/kaggle-amex/blob/main/Notebooks/LGBM/Baseline.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+"""_summary_
+======= select diff features =======
+number of selected features : 57
+number of selected features : 46
+number of selected features : 42
+number of selected features : 38
+number of selected features : 18
+======= Diff Features =======
+OOF Score: 0.79298
+OOF Score: 0.79358
+OOF Score: 0.79377
+OOF Score: 0.79369
+OOF Score: 0.79395
+"""
 
 # In[50]:
 

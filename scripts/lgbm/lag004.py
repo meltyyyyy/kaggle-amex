@@ -2,6 +2,20 @@
 # coding: utf-8
 
 # <a href="https://colab.research.google.com/github/meltyyyyy/kaggle-amex/blob/main/Notebooks/LGBM/Baseline.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>
+"""_summary_
+======= select avg features =======
+number of selected features : 63
+number of selected features : 50
+number of selected features : 42
+number of selected features : 36
+number of selected features : 25
+======= Avg Features =======
+OOF Score: 0.79358
+OOF Score: 0.79319
+OOF Score: 0.79344
+OOF Score: 0.79355
+OOF Score: 0.79341
+"""
 
 # In[50]:
 
