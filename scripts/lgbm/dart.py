@@ -322,7 +322,7 @@ plot_importances(models)
 
 sub = pd.DataFrame({'customer_ID': test.index,
                     'prediction': pred})
-sub.to_csv(f'{SUBMISSION}/submission.csv', index=False)
+sub.to_csv(f'{SUBMISSION}/dart.csv', index=False)
 
 
 
