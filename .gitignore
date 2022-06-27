@@ -14,4 +14,4 @@ catboost_info/
 *out
 *png
 *txt
-.log
+*.log
