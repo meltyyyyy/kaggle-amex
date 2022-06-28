@@ -1,6 +1,63 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+"""Summery
+======= select avg features =======
+number of selected features : 63
+number of selected features : 50
+number of selected features : 42
+number of selected features : 36
+number of selected features : 25
+#########################
+### Trial 0
+### Training with 532 features
+#########################
+fold0 amex meric: 0.7921926850975678
+fold1 amex meric: 0.7932194542295442
+fold2 amex meric: 0.7957670965072512
+fold3 amex meric: 0.7932849440305061
+fold4 amex meric: 0.793441142029631
+OOF Score: 0.79358
+#########################
+### Trial 1
+### Training with 519 features
+#########################
+fold0 amex meric: 0.7910387305435023
+fold1 amex meric: 0.7927774617778126
+fold2 amex meric: 0.7960022883163804
+fold3 amex meric: 0.7930905360796965
+fold4 amex meric: 0.7930578335655818
+OOF Score: 0.79319
+#########################
+### Trial 2
+### Training with 511 features
+#########################
+fold0 amex meric: 0.7891542940233426
+fold1 amex meric: 0.7944922216194065
+fold2 amex meric: 0.7960327379826038
+fold3 amex meric: 0.794401627172062
+fold4 amex meric: 0.7931136563805401
+OOF Score: 0.79344
+#########################
+### Trial 3
+### Training with 505 features
+#########################
+fold0 amex meric: 0.7915628008224456
+fold1 amex meric: 0.7926008006616765
+fold2 amex meric: 0.795814076742281
+fold3 amex meric: 0.794279059691344
+fold4 amex meric: 0.793499265076766
+OOF Score: 0.79355
+#########################
+### Trial 4
+### Training with 494 features
+#########################
+fold0 amex meric: 0.7921408344546776
+fold1 amex meric: 0.7917216482244058
+fold2 amex meric: 0.7955711539503116
+fold3 amex meric: 0.7941445731650929
+fold4 amex meric: 0.7934937051558211
+OOF Score: 0.79341
+"""
 # In[1]:
 
 
