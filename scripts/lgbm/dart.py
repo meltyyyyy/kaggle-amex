@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+"""Summery
+fold0 amex meric: 0.7909834372339242
+fold1 amex meric: 0.7926041227156322
+fold2 amex meric: 0.796527043998581
+fold3 amex meric: 0.7945132449418542
+fold4 amex meric: 0.7930573001592678
+OOF Score: 0.79354
+"""
 # In[1]:
 
 

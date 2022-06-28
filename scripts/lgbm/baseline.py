@@ -5,12 +5,12 @@
 
 
 """Summery
-fold0 amex meric: 0.7909834372339242
-fold1 amex meric: 0.7926041227156322
-fold2 amex meric: 0.796527043998581
-fold3 amex meric: 0.7945132449418542
-fold4 amex meric: 0.7930573001592678
-OOF Score: 0.79354
+fold0 amex meric: 0.8022759084522446
+fold1 amex meric: 0.7917126222806525
+fold2 amex meric: 0.7954790354964769
+fold3 amex meric: 0.7920938510088932
+fold4 amex meric: 0.7958728095673222
+OOF Score: 0.79549
 """
 # In[1]:
 
