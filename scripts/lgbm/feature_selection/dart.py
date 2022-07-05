@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+"""Summery
+fold0 amex meric: 0.7994612761462004
+fold1 amex meric: 0.7923309010805841
+fold2 amex meric: 0.7975081289673476
+fold3 amex meric: 0.7920972847251824
+fold4 amex meric: 0.7964170555083037
+OOF Score: 0.79556
+"""
 # In[ ]:
 
 
@@ -206,7 +213,8 @@ def select_cont_features(df: pd.DataFrame, features, target, max_features=450):
     # select features with L1 norm
     scaler = StandardScaler()
     scaler.fit(train_X)
-    for alpha in [3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2]:
+    # for alpha in [3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2]:
+    for alpha in [3e-5]:
         selector = SelectFromModel(
             Lasso(
                 alpha=alpha),
